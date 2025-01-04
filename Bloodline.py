@@ -7,10 +7,11 @@ pygame.init()
 WIDTH, HEIGHT = 1280, 720
 FPS = 60
 PLAYER_SPEED = 5
-ENEMY_SPEED = 2
+ENEMY_SPEED = 3
 BULLET_SPEED = 10
 STATIC_BULLET_SPEED = 7
-STATIC_SHOOT_INTERVAL = 3000  # Время между выстрелами в миллисекундах
+PLAYER_SHOOT_INTERVAL = 500
+STATIC_SHOOT_INTERVAL = 2000  # Время между выстрелами в миллисекундах
 
 # Цвета для теста(Потом будут спрайты)
 WHITE = (255, 255, 255)
@@ -24,9 +25,14 @@ class Level:
     pass
 
 
-class Player:
+class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height):
-        self.rect = pygame.Rect(x, y, width, height)
+        super().__init__()
+        self.image = pygame.Surface((width, height))
+        self.image.fill(GREEN)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+        self.last_shot_time = pygame.time.get_ticks()
 
     def move(self, keys):
         if keys["up"]:
@@ -42,13 +48,37 @@ class Player:
         self.rect.x = max(0, min(WIDTH - self.rect.width, self.rect.x))
         self.rect.y = max(0, min(HEIGHT - self.rect.height, self.rect.y))
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, GREEN, self.rect)
+    # def draw(self, screen):
+    #     pygame.draw.rect(screen, GREEN, self.rect)
+
+    def can_shoot(self):
+        """Проверка возможности выстрела"""
+        return (pygame.time.get_ticks() - self.last_shot_time) >= PLAYER_SHOOT_INTERVAL
+
+    def shoot(self, mouse_pos):
+        # Сброс таймера выстрела
+        self.last_shot_time = pygame.time.get_ticks()
+
+        # Координаты курсора мыши
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        bullet = Bullet(self.rect.centerx, self.rect.centery, 5, 5)
+
+        # Направление пули к курсору
+        dx = mouse_x - self.rect.centerx
+        dy = mouse_y - self.rect.centery
+        dist = max((dx ** 2 + dy ** 2) ** 0.5, 1)
+        bullet.vx = (dx / dist) * BULLET_SPEED
+        bullet.vy = (dy / dist) * BULLET_SPEED
+        return bullet
 
 
-class Enemy:
+class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height):
-        self.rect = pygame.Rect(x, y, width, height)
+        super().__init__()
+        self.image = pygame.Surface((width, height))
+        self.image.fill(RED)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
 
     def move_towards(self, target):
         if target.x > self.rect.x:
@@ -60,47 +90,53 @@ class Enemy:
         if target.y < self.rect.y:
             self.rect.y -= ENEMY_SPEED
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, RED, self.rect)
+    # def draw(self, screen):
+    #     pygame.draw.rect(screen, RED, self.rect)
 
 
-class StaticEnemy:
+class StaticEnemy(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height):
-        self.rect = pygame.Rect(x, y, width, height)
+        super().__init__()
+        self.image = pygame.Surface((width, height))
+        self.image.fill(BLUE)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
         self.last_shot_time = pygame.time.get_ticks()
 
-    def shoot(self, bullets, target):
+    def shoot(self, target):
         current_time = pygame.time.get_ticks()
         if current_time - self.last_shot_time >= STATIC_SHOOT_INTERVAL:
             self.last_shot_time = current_time
             bullet = Bullet(self.rect.centerx, self.rect.centery, 5, 5)
             # Направление к игроку
-            dx = target.rect.centerx - self.rect.centerx
-            dy = target.rect.centery - self.rect.centery
-            dist = max((dx**2 + dy**2) ** 0.5, 1)
+            dx = target.centerx - self.rect.centerx
+            dy = target.centery - self.rect.centery
+            dist = max((dx ** 2 + dy ** 2) ** 0.5, 1)
             bullet.vx = (dx / dist) * STATIC_BULLET_SPEED
             bullet.vy = (dy / dist) * STATIC_BULLET_SPEED
-            bullets.append(bullet)
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, BLUE, self.rect)
+            return bullet
+        return None
 
 
-class Bullet:
+class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height):
-        self.rect = pygame.Rect(x, y, width, height)
+        super().__init__()
+        self.image = pygame.Surface((width, height))
+        self.image.fill(WHITE)
+        self.rect = self.image.get_rect()
+        self.rect.center = (x, y)
+
         self.vx = 0
         self.vy = 0
 
-    def move(self):
+    def update(self):
         self.rect.x += self.vx
         self.rect.y += self.vy
 
-    def is_off_screen(self):
-        return self.rect.y < 0 or self.rect.y > HEIGHT or self.rect.x < 0 or self.rect.x > WIDTH
-
-    def draw(self, screen):
-        pygame.draw.rect(screen, WHITE, self.rect)
+        # Удаление пули, если она за экраном
+        if self.rect.y < 0 or self.rect.y > HEIGHT or self.rect.x < 0 or self.rect.x > WIDTH:
+            self.kill()
 
 
 class Game:
@@ -109,123 +145,136 @@ class Game:
         pygame.display.set_caption("BloodLine")
         self.clock = pygame.time.Clock()
         self.running = True
+        self.game_state = 'game'
+        self.reset_game()
 
-        # Игровые объекты
+    def reset_game(self):
+        """Создаёт/пересоздаёт все игровые объекты с нуля."""
         self.player = Player(WIDTH // 2, HEIGHT // 2, 40, 40)
-        self.enemies = [Enemy(random.randint(0, WIDTH - 15), random.randint(0, HEIGHT - 15), 30, 30) for _ in range(5)]
-        self.static_enemies = [StaticEnemy(random.randint(0, WIDTH - 15), random.randint(0, HEIGHT - 15), 30, 30) for _ in range(3)]
-        self.bullets = []
-        self.enemy_bullets = []
         self.keys = {"up": False, "down": False, "left": False, "right": False}
+
+        # Группы спрайтов
+        self.player_group = pygame.sprite.GroupSingle(self.player)
+        self.enemy_group = pygame.sprite.Group()
+        self.static_enemy_group = pygame.sprite.Group()
+        self.player_bullets = pygame.sprite.Group()
+        self.enemy_bullets = pygame.sprite.Group()
+
+        # Создание врагов
+        for _ in range(5):
+            x = random.randint(0, WIDTH - 30)
+            y = random.randint(0, HEIGHT - 30)
+            enemy = Enemy(x, y, 30, 30)
+            self.enemy_group.add(enemy)
+
+        for _ in range(5):
+            x = random.randint(0, WIDTH - 30)
+            y = random.randint(0, HEIGHT - 30)
+            static_enemy = StaticEnemy(x, y, 30, 30)
+            self.static_enemy_group.add(static_enemy)
 
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
 
-            # Обработка нажатий клавиш
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w:
-                    self.keys["up"] = True
-                if event.key == pygame.K_s:
-                    self.keys["down"] = True
-                if event.key == pygame.K_a:
-                    self.keys["left"] = True
-                if event.key == pygame.K_d:
-                    self.keys["right"] = True
+            if self.game_state == 'game':
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_w:
+                        self.keys["up"] = True
+                    if event.key == pygame.K_s:
+                        self.keys["down"] = True
+                    if event.key == pygame.K_a:
+                        self.keys["left"] = True
+                    if event.key == pygame.K_d:
+                        self.keys["right"] = True
 
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_w:
-                    self.keys["up"] = False
-                if event.key == pygame.K_s:
-                    self.keys["down"] = False
-                if event.key == pygame.K_a:
-                    self.keys["left"] = False
-                if event.key == pygame.K_d:
-                    self.keys["right"] = False
+                if event.type == pygame.KEYUP:
+                    if event.key == pygame.K_w:
+                        self.keys["up"] = False
+                    if event.key == pygame.K_s:
+                        self.keys["down"] = False
+                    if event.key == pygame.K_a:
+                        self.keys["left"] = False
+                    if event.key == pygame.K_d:
+                        self.keys["right"] = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Левая кнопка мыши
-                    self.shoot_bullet()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Левая кнопка мыши
+                        if self.player.can_shoot():
+                            bullet = self.player.shoot(pygame.mouse.get_pos())
+                            self.player_bullets.add(bullet)
 
-    def shoot_bullet(self):
-        # Координаты курсора мыши
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        # Создаем пулю из центра игрока
-        bullet = Bullet(self.player.rect.centerx, self.player.rect.centery, 5, 5)
-        # Направление пули к курсору
-        dx = mouse_x - self.player.rect.centerx
-        dy = mouse_y - self.player.rect.centery
-        dist = max((dx ** 2 + dy ** 2) ** 0.5, 1)
-        bullet.vx = (dx / dist) * BULLET_SPEED
-        bullet.vy = (dy / dist) * BULLET_SPEED
-        self.bullets.append(bullet)
+            elif self.game_state == 'game_over':
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r:
+                        # Перезапуск игры
+                        self.reset_game()
+                        self.game_state = "game"
 
     def update(self):
-        # Движение игрока
-        self.player.move(self.keys)
+        if self.game_state == 'game':
+            # Движение игрока
+            self.player.move(self.keys)
 
-        # Обновление пуль
-        for bullet in self.bullets[:]:
-            bullet.move()
-            if bullet.is_off_screen():
-                self.bullets.remove(bullet)
+            # Движение врагов к игроку
+            for enemy in self.enemy_group:
+                enemy.move_towards(self.player.rect)
 
-        for bullet in self.enemy_bullets[:]:
-            bullet.move()
-            if bullet.is_off_screen():
-                self.enemy_bullets.remove(bullet)
+            # Стрельба статических врагов
+            for static_enemy in self.static_enemy_group:
+                bullet = static_enemy.shoot(self.player.rect)
+                if bullet:
+                    self.enemy_bullets.add(bullet)
+                # static_enemy.shoot(self.enemy_bullets, self.player)
 
-        # Движение врагов к игроку
-        for enemy in self.enemies:
-            enemy.move_towards(self.player.rect)
+            # Обновление пуль
+            self.player_bullets.update()
+            self.enemy_bullets.update()
 
-        # Стрельба статических врагов
-        for static_enemy in self.static_enemies:
-            static_enemy.shoot(self.enemy_bullets, self.player)
+            # Проверка столкновений пуль с врагами
+            hits_enemy = pygame.sprite.groupcollide(self.player_bullets, self.enemy_group, True, True)
+            hits_static = pygame.sprite.groupcollide(self.player_bullets, self.static_enemy_group, True, True)
 
-        # Проверка столкновений пуль с врагами
-        for bullet in self.bullets[:]:
-            for enemy in self.enemies[:]:
-                if bullet.rect.colliderect(enemy.rect):
-                    self.bullets.remove(bullet)
-                    self.enemies.remove(enemy)
-                    break
-            for enemy in self.static_enemies[:]:
-                if bullet.rect.colliderect(enemy.rect):
-                    self.bullets.remove(bullet)
-                    self.static_enemies.remove(enemy)
-                    break
+            # Проверка столкновений врагов с игроком
+            enemy_touch = pygame.sprite.spritecollide(self.player, self.enemy_group, False)
+            static_touch = pygame.sprite.spritecollide(self.player, self.static_enemy_group, False)
+            if enemy_touch or static_touch:
+                self.game_over()
 
-        # Проверка столкновений врагов с игроком
-        for enemy in self.enemies:
-            if self.player.rect.colliderect(enemy.rect):
-                print("Game Over!")
-                self.running = False
-
-        # Проверка попадания статических пуль в игрока
-        for bullet in self.enemy_bullets[:]:
-            if bullet.rect.colliderect(self.player.rect):
-                print("Game Over!")
-                self.running = False
+            # Проверка попадания статических пуль в игрока
+            bullet_hits_player = pygame.sprite.spritecollide(self.player, self.enemy_bullets, True)
+            if bullet_hits_player:
+                self.game_over()
 
     def draw(self):
-        self.screen.fill(BLACK)
-        self.player.draw(self.screen)
+        if self.game_state == 'game':
+            self.screen.fill(BLACK)
 
-        for enemy in self.enemies:
-            enemy.draw(self.screen)
+            # Отрисовка групп
+            self.player_group.draw(self.screen)
+            self.enemy_group.draw(self.screen)
+            self.static_enemy_group.draw(self.screen)
+            self.player_bullets.draw(self.screen)
+            self.enemy_bullets.draw(self.screen)
 
-        for static_enemy in self.static_enemies:
-            static_enemy.draw(self.screen)
+        elif self.game_state == 'game_over':
+            # Рисуем экран Game Over
+            self.screen.fill((30, 0, 0))  # Тёмно-красный фон
+            font = pygame.font.SysFont(None, 100)
+            text = font.render("GAME OVER", True, (255, 50, 50))
+            text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
+            self.screen.blit(text, text_rect)
 
-        for bullet in self.bullets:
-            bullet.draw(self.screen)
-
-        for bullet in self.enemy_bullets:
-            bullet.draw(self.screen)
+            font_small = pygame.font.SysFont(None, 60)
+            restart_text = font_small.render("Press R to Restart", True, WHITE)
+            restart_rect = restart_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 50))
+            self.screen.blit(restart_text, restart_rect)
 
         pygame.display.flip()
+
+    def game_over(self):
+        self.game_state = 'game_over'
 
     def run(self):
         while self.running:
@@ -233,6 +282,7 @@ class Game:
             self.update()
             self.draw()
             self.clock.tick(FPS)
+
         pygame.quit()
 
 
