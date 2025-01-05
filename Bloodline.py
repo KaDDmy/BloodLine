@@ -52,7 +52,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = max(0, min(HEIGHT - self.rect.height, self.rect.y))
 
     def look_at_cursor(self):
-        """Поворачивает игрока а сторону курсора"""
+        """Поворачивает игрока в сторону курсора"""
         mouse_x, mouse_y = pygame.mouse.get_pos()
 
         dx = mouse_x - self.rect.centerx
@@ -93,8 +93,10 @@ class Player(pygame.sprite.Sprite):
 
 
 class EnemyBase(pygame.sprite.Sprite):
-    def __init__(self, x, y, image):
+    def __init__(self, x, y, image, dead_image):
         super().__init__()
+        self.is_dead = False
+        self.dead_image = dead_image
         self.original_image = Game.load_image(image)
         self.image = self.original_image
         self.rect = self.image.get_rect(center=(x, y))
@@ -105,17 +107,26 @@ class EnemyBase(pygame.sprite.Sprite):
         dx = player.rect.centerx - self.rect.centerx
         dy = player.rect.centery - self.rect.centery
 
-        angle = math.degrees(math.atan2(-dy, dx))  # Угол от врага к игроку
+        self.current_angle = math.degrees(math.atan2(-dy, dx))  # Угол от врага к игроку
 
         # Поворот изображения
-        self.image = pygame.transform.rotate(self.original_image, angle)
+        self.image = pygame.transform.rotate(self.original_image, self.current_angle)
         self.rect = self.image.get_rect(center=self.rect.center)
         self.mask = pygame.mask.from_surface(self.image)
+
+    def die(self):
+        """Убивает врага - меняет спрайт и удаляет маску"""
+        self.is_dead = True
+        dead_image = Game.load_image(self.dead_image)
+        self.image = pygame.transform.rotate(dead_image, self.current_angle)
+        self.mask = None
 
 
 class Enemy(EnemyBase):
     def __init__(self, x, y):
-        super().__init__(x, y, 'enemy-knife.png')
+        super().__init__(x, y, 'enemy-knife.png', random.choice(['enemy-knife-dead-type1.png',
+                                                                 'enemy-knife-dead-type2.png',
+                                                                 'enemy-knife-dead-type3.png']))
 
     def move_towards(self, target):
         if target.x > self.rect.x:
@@ -133,7 +144,9 @@ class Enemy(EnemyBase):
 
 class GunEnemy(EnemyBase):
     def __init__(self, x, y):
-        super().__init__(x, y, 'enemy-gun.png')
+        super().__init__(x, y, 'enemy-gun.png', random.choice(['enemy-gun-dead-type1.png',
+                                                               'enemy-gun-dead-type2.png',
+                                                               'enemy-gun-dead-type3.png']))
         self.last_shot_time = pygame.time.get_ticks()
 
     def shoot(self, target):
@@ -194,15 +207,16 @@ class Game:
         self.gun_enemy_group = pygame.sprite.Group()
         self.player_bullets = pygame.sprite.Group()
         self.enemy_bullets = pygame.sprite.Group()
+        self.dead_enemy_group = pygame.sprite.Group()
 
         # Создание врагов
-        for _ in range(5):
+        for _ in range(3):
             x = random.randint(0, WIDTH - 30)
             y = random.randint(0, HEIGHT - 30)
             enemy = Enemy(x, y)
             self.enemy_group.add(enemy)
 
-        for _ in range(5):
+        for _ in range(3):
             x = random.randint(0, WIDTH - 30)
             y = random.randint(0, HEIGHT - 30)
             gun_enemy = GunEnemy(x, y)
@@ -285,20 +299,34 @@ class Game:
             self.game_over()
 
         bullets_hit_enemies = pygame.sprite.groupcollide(
-            self.player_bullets, self.enemy_group, True, True, collided=pygame.sprite.collide_mask)
+            self.player_bullets, self.enemy_group, True, False, collided=pygame.sprite.collide_mask)
+        for bullet, enemies in bullets_hit_enemies.items():
+            for enemy in enemies:
+                enemy.die()
+                self.enemy_group.remove(enemy)
+                self.dead_enemy_group.add(enemy)
+
         bullets_hit_gun_enemies = pygame.sprite.groupcollide(
-            self.player_bullets, self.gun_enemy_group, True, True, collided=pygame.sprite.collide_mask)
+            self.player_bullets, self.gun_enemy_group, True, False, collided=pygame.sprite.collide_mask)
+        for bullet, enemies in bullets_hit_gun_enemies.items():
+            for enemy in enemies:
+                enemy.die()
+                self.gun_enemy_group.remove(enemy)
+                self.dead_enemy_group.add(enemy)
 
     def draw(self):
         if self.game_state == 'game':
             self.screen.fill(BLACK)
 
             # Отрисовка групп
-            self.player_group.draw(self.screen)
+            self.dead_enemy_group.draw(self.screen)
+
             self.enemy_group.draw(self.screen)
             self.gun_enemy_group.draw(self.screen)
             self.player_bullets.draw(self.screen)
             self.enemy_bullets.draw(self.screen)
+
+            self.player_group.draw(self.screen)
 
         elif self.game_state == 'game_over':
             # Рисуем экран Game Over
