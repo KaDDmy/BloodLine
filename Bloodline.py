@@ -13,7 +13,7 @@ PLAYER_SPEED = 5
 ENEMY_SPEED = 3
 BULLET_SPEED = 10
 GUN_BULLET_SPEED = 7
-PLAYER_SHOOT_INTERVAL = 0
+PLAYER_SHOOT_INTERVAL = 500
 GUN_SHOOT_INTERVAL = 2000  # Время между выстрелами в миллисекундах
 
 # Цвета для теста(Потом будут спрайты)
