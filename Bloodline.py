@@ -3,6 +3,7 @@ import random
 import os
 import sys
 import math
+import time
 
 pygame.init()
 
@@ -13,7 +14,7 @@ PLAYER_SPEED = 5
 ENEMY_SPEED = 3
 BULLET_SPEED = 10
 GUN_BULLET_SPEED = 7
-PLAYER_SHOOT_INTERVAL = 500
+PLAYER_SHOOT_INTERVAL = 300
 GUN_SHOOT_INTERVAL = 2000  # Время между выстрелами в миллисекундах
 
 # Цвета для теста(Потом будут спрайты)
@@ -25,7 +26,22 @@ BLUE = (0, 0, 255)
 
 
 class Level:
-    pass
+    def __init__(self):
+        super().__init__()
+
+    def show_new_level_screen(self):
+        font = pygame.font.Font(None, 74)
+        text = font.render(f"Level {self.levels[self.current_level_index][0]}", True, WHITE)
+        countdown_font = pygame.font.Font(None, 50)
+
+        for i in range(5, 0, -1):
+            self.screen.fill(BLACK)
+            self.screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 3))
+            countdown_text = countdown_font.render(f"Starting in {i}...", True, WHITE)
+            self.screen.blit(countdown_text, (WIDTH // 2 - countdown_text.get_width() // 2, HEIGHT // 2))
+            pygame.display.flip()
+            time.sleep(1)
+        Game.reset_game(self)
 
 
 class Player(pygame.sprite.Sprite):
@@ -193,6 +209,10 @@ class Game:
         pygame.display.set_caption("BloodLine")
         self.clock = pygame.time.Clock()
         self.running = True
+        self.green_intensity = 255
+        self.fade_speed = 1
+        self.levels = [[1, 5], [2, 6], [3, 8]]
+        self.current_level_index = 0
         self.game_state = 'game'
         self.reset_game()
 
@@ -210,15 +230,15 @@ class Game:
         self.dead_enemy_group = pygame.sprite.Group()
 
         # Создание врагов
-        for _ in range(3):
+        for _ in range(self.levels[self.current_level_index][1]):
             x = random.randint(0, WIDTH - 30)
-            y = random.randint(0, HEIGHT - 30)
+            y = random.randint(0, HEIGHT - 80)
             enemy = Enemy(x, y)
             self.enemy_group.add(enemy)
 
-        for _ in range(3):
+        for _ in range(self.levels[self.current_level_index][1] - 2):
             x = random.randint(0, WIDTH - 30)
-            y = random.randint(0, HEIGHT - 30)
+            y = random.randint(0, HEIGHT - 80)
             gun_enemy = GunEnemy(x, y)
             self.gun_enemy_group.add(gun_enemy)
 
@@ -258,6 +278,15 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
                         # Перезапуск игры
+                        self.reset_game()
+                        self.game_state = "game"
+
+            elif self.game_state == 'win':
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                        # Перезапуск игры
+                        self.green_intensity = 255
+                        self.current_level_index = 0
                         self.reset_game()
                         self.game_state = "game"
 
@@ -314,6 +343,13 @@ class Game:
                 self.gun_enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
 
+        if len(self.enemy_group) == 0 and len(self.gun_enemy_group) == 0:
+            self.current_level_index += 1
+            if self.current_level_index < len(self.levels):
+                Level.show_new_level_screen(self)
+            else:
+                self.game_state = 'win'
+
     def draw(self):
         if self.game_state == 'game':
             self.screen.fill(BLACK)
@@ -338,6 +374,24 @@ class Game:
 
             font_small = pygame.font.SysFont(None, 60)
             restart_text = font_small.render("Press R to Restart", True, WHITE)
+            restart_rect = restart_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 50))
+            self.screen.blit(restart_text, restart_rect)
+
+        elif self.game_state == 'win':
+            if self.green_intensity > 0:
+                self.green_intensity -= self.fade_speed
+
+            # Заполнение экрана текущим зеленым цветом
+            self.screen.fill((0, self.green_intensity, 0))
+
+            # Отображение текста
+            font = pygame.font.SysFont(None, 100)
+            text = font.render("YOU WIN!", True, (204, 204, 51))
+            text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
+            self.screen.blit(text, text_rect)
+
+            font_small = pygame.font.SysFont(None, 60)
+            restart_text = font_small.render("Press 'Enter' to Play Again", True, (204, 204, 51))
             restart_rect = restart_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 50))
             self.screen.blit(restart_text, restart_rect)
 
