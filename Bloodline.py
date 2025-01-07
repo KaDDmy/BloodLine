@@ -16,7 +16,7 @@ BULLET_SPEED = 10
 GUN_BULLET_SPEED = 7
 PLAYER_SHOOT_INTERVAL = 300
 
-GUN_SHOOT_INTERVAL = 2000  # Время между выстрелами в миллисекундах для GunEnemy()
+GUN_SHOOT_INTERVAL = 1750  # Время между выстрелами в миллисекундах для GunEnemy()
 
 RIFLE_SHOOT_INTERVAL = 2000  # Время между очередями в миллисекундах для RifleEnemy()
 RIFLE_BURST_INTERVAL = 100  # Время между выстрелами в миллисекундах в очереди для RifleEnemy()
@@ -50,7 +50,7 @@ class Level:
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height):
+    def __init__(self, x, y):
         super().__init__()
         self.original_image = Game.load_image('player-gun.png')
         self.image = self.original_image
@@ -234,14 +234,17 @@ class Bullet(pygame.sprite.Sprite):
         super().__init__()
         self.image = Game.load_image(bullet_image)
         self.rect = self.image.get_rect(center=(x, y))
-        self.rect.center = (x, y)
+
+        self.x, self.y = float(x), float(y)
 
         self.vx = 0
         self.vy = 0
 
     def update(self):
-        self.rect.x += self.vx
-        self.rect.y += self.vy
+        self.x += self.vx
+        self.y += self.vy
+
+        self.rect.center = (int(self.x), int(self.y))
 
         # Удаление пули, если она за экраном
         if self.rect.y < 0 or self.rect.y > HEIGHT or self.rect.x < 0 or self.rect.x > WIDTH:
@@ -259,6 +262,13 @@ class Game:
         self.current_level_index = 0
         self.current_level = None
         self.game_state = 'game'
+
+        # Курсор в виде прицела
+        pygame.mouse.set_visible(False)
+        self.cursor_sprite = pygame.sprite.Sprite()
+        self.cursor_sprite.image = Game.load_image("cursor.png")
+        self.cursor_sprite.rect = self.cursor_sprite.image.get_rect()
+        self.cursor_group = pygame.sprite.GroupSingle(self.cursor_sprite)
 
         # Уровни
         self.levels = [
@@ -294,7 +304,7 @@ class Game:
         """Создаёт/пересоздаёт все игровые объекты с нуля."""
         self.current_level = self.levels[self.current_level_index]  # Выбираем текущий уровень
 
-        self.player = Player(WIDTH // 2, HEIGHT // 2, 40, 40)
+        self.player = Player(WIDTH // 2, HEIGHT // 2)
         self.keys = {"up": False, "down": False, "left": False, "right": False}
 
         # Группы спрайтов
@@ -320,6 +330,9 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+
+            if event.type == pygame.MOUSEMOTION:
+                self.cursor_sprite.rect.center = event.pos
 
             if self.game_state == 'game':
                 if event.type == pygame.KEYDOWN:
@@ -453,6 +466,10 @@ class Game:
             self.enemy_bullets.draw(self.screen)
 
             self.player_group.draw(self.screen)
+
+            # Отрисовка курсора
+            if pygame.mouse.get_focused():
+                self.cursor_group.draw(self.screen)
 
         elif self.game_state == 'game_over':
             # Рисуем экран Game Over
