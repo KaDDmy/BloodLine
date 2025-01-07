@@ -15,7 +15,12 @@ ENEMY_SPEED = 3
 BULLET_SPEED = 10
 GUN_BULLET_SPEED = 7
 PLAYER_SHOOT_INTERVAL = 300
-GUN_SHOOT_INTERVAL = 2000  # Время между выстрелами в миллисекундах
+
+GUN_SHOOT_INTERVAL = 2000  # Время между выстрелами в миллисекундах для GunEnemy()
+
+RIFLE_SHOOT_INTERVAL = 2000  # Время между очередями в миллисекундах для RifleEnemy()
+RIFLE_BURST_INTERVAL = 100  # Время между выстрелами в миллисекундах в очереди для RifleEnemy()
+RIFLE_BULLET_COUNT = 8  # Количество пуль в 1 очереди у RifleEnemy()
 
 # Цвета для теста(Потом будут спрайты)
 WHITE = (255, 255, 255)
@@ -140,9 +145,8 @@ class EnemyBase(pygame.sprite.Sprite):
 
 class Enemy(EnemyBase):
     def __init__(self, x, y):
-        super().__init__(x, y, 'enemy-knife.png', random.choice(['enemy-knife-dead-type1.png',
-                                                                 'enemy-knife-dead-type2.png',
-                                                                 'enemy-knife-dead-type3.png']))
+        super().__init__(x, y, 'enemy-knife.png',
+                         f'enemy-knife-dead-type{random.randint(1, 4)}.png')
 
     def move_towards(self, target):
         if target.x > self.rect.x:
@@ -160,9 +164,8 @@ class Enemy(EnemyBase):
 
 class GunEnemy(EnemyBase):
     def __init__(self, x, y):
-        super().__init__(x, y, 'enemy-gun.png', random.choice(['enemy-gun-dead-type1.png',
-                                                               'enemy-gun-dead-type2.png',
-                                                               'enemy-gun-dead-type3.png']))
+        super().__init__(x, y, 'enemy-gun.png',
+                         f'enemy-gun-dead-type{random.randint(1, 4)}.png')
         self.last_shot_time = pygame.time.get_ticks()
 
     def shoot(self, target):
@@ -184,10 +187,52 @@ class GunEnemy(EnemyBase):
         self.look_at_player(player)
 
 
-class Bullet(pygame.sprite.Sprite):
+class RifleEnemy(EnemyBase):
     def __init__(self, x, y):
+        super().__init__(x, y, 'enemy-rifle.png',
+                         f'enemy-rifle-dead-type{random.randint(1, 4)}.png')
+        self.bullet_counter = 0
+        self.last_shot_time = pygame.time.get_ticks()  # Последний выстрел
+        self.next_burst_time = pygame.time.get_ticks() + RIFLE_SHOOT_INTERVAL  # Время для начала новой очереди
+
+    def shoot(self, target):
+        current_time = pygame.time.get_ticks()
+
+        # Ожидание новой очереди
+        if self.bullet_counter == 0 and current_time < self.next_burst_time:
+            return None
+
+        # Начало новой очереди
+        if self.bullet_counter == 0 and current_time >= self.next_burst_time:
+            self.bullet_counter = RIFLE_BULLET_COUNT
+
+        # Стрельба очереди
+        if self.bullet_counter > 0 and current_time - self.last_shot_time >= RIFLE_BURST_INTERVAL:
+            self.last_shot_time = current_time
+            self.bullet_counter -= 1
+
+            bullet = Bullet(self.rect.centerx, self.rect.centery, bullet_image='bullet5x5.png')
+            # Направление к игроку
+            dx = target.centerx - self.rect.centerx
+            dy = target.centery - self.rect.centery
+            dist = max((dx ** 2 + dy ** 2) ** 0.5, 1)
+            bullet.vx = (dx / dist) * GUN_BULLET_SPEED
+            bullet.vy = (dy / dist) * GUN_BULLET_SPEED
+
+            if self.bullet_counter == 0:
+                self.next_burst_time = current_time + RIFLE_SHOOT_INTERVAL
+
+            return bullet
+        return None
+
+    def update(self, player):
+        self.look_at_player(player)
+
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, bullet_image='bullet7x7.png'):
         super().__init__()
-        self.image = Game.load_image('bullet7x7.png')
+        self.image = Game.load_image(bullet_image)
         self.rect = self.image.get_rect(center=(x, y))
         self.rect.center = (x, y)
 
@@ -218,10 +263,13 @@ class Game:
         # Уровни
         self.levels = [
             {"level": 1, "knife_enemies": 2, "gun_enemies": 1, "rifle_enemies": 0},
-            {"level": 2, "knife_enemies": 4, "gun_enemies": 2, "rifle_enemies": 0},
-            {"level": 3, "knife_enemies": 4, "gun_enemies": 4, "rifle_enemies": 0},
-            {"level": 4, "knife_enemies": 5, "gun_enemies": 5, "rifle_enemies": 0},
-            {"level": 5, "knife_enemies": 8, "gun_enemies": 6, "rifle_enemies": 0},
+            {"level": 2, "knife_enemies": 1, "gun_enemies": 1, "rifle_enemies": 1},
+            {"level": 3, "knife_enemies": 3, "gun_enemies": 2, "rifle_enemies": 1},
+            {"level": 4, "knife_enemies": 3, "gun_enemies": 2, "rifle_enemies": 2},
+            {"level": 5, "knife_enemies": 4, "gun_enemies": 4, "rifle_enemies": 2},
+            {"level": 6, "knife_enemies": 4, "gun_enemies": 3, "rifle_enemies": 3},
+            {"level": 7, "knife_enemies": 5, "gun_enemies": 4, "rifle_enemies": 3},
+            {"level": 8, "knife_enemies": 5, "gun_enemies": 5, "rifle_enemies": 4},
         ]
 
         self.reset_game()
@@ -263,7 +311,7 @@ class Game:
             self.spawn_enemy(Enemy, self.enemy_group, 175)
 
         for _ in range(self.current_level["gun_enemies"]):
-            self.spawn_enemy(GunEnemy, self.gun_enemy_group,325)
+            self.spawn_enemy(GunEnemy, self.gun_enemy_group, 325)
 
         for _ in range(self.current_level["rifle_enemies"]):
             self.spawn_enemy(RifleEnemy, self.rifle_enemy_group, 275)
@@ -324,6 +372,7 @@ class Game:
             # Обновление врагов
             self.gun_enemy_group.update(self.player)
             self.enemy_group.update(self.player)
+            self.rifle_enemy_group.update(self.player)
 
             # Движение врагов к игроку
             for enemy in self.enemy_group:
@@ -332,6 +381,11 @@ class Game:
             # Стрельба врагов
             for gun_enemy in self.gun_enemy_group:
                 bullet = gun_enemy.shoot(self.player.rect)
+                if bullet:
+                    self.enemy_bullets.add(bullet)
+
+            for rifle_enemy in self.rifle_enemy_group:
+                bullet = rifle_enemy.shoot(self.player.rect)
                 if bullet:
                     self.enemy_bullets.add(bullet)
 
@@ -369,7 +423,15 @@ class Game:
                 self.gun_enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
 
-        if len(self.enemy_group) == 0 and len(self.gun_enemy_group) == 0:
+        bullets_hit_rifle_enemies = pygame.sprite.groupcollide(
+            self.player_bullets, self.rifle_enemy_group, True, False, collided=pygame.sprite.collide_mask)
+        for bullet, enemies in bullets_hit_rifle_enemies.items():
+            for enemy in enemies:
+                enemy.die()
+                self.rifle_enemy_group.remove(enemy)
+                self.dead_enemy_group.add(enemy)
+
+        if sum([len(self.enemy_group), len(self.gun_enemy_group), len(self.rifle_enemy_group)]) == 0:
             self.current_level_index += 1
             if self.current_level_index < len(self.levels):
                 Level.show_new_level_screen(self)
@@ -386,6 +448,7 @@ class Game:
 
             self.enemy_group.draw(self.screen)
             self.gun_enemy_group.draw(self.screen)
+            self.rifle_enemy_group.draw(self.screen)
             self.player_bullets.draw(self.screen)
             self.enemy_bullets.draw(self.screen)
 
