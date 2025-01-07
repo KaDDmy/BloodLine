@@ -31,7 +31,7 @@ class Level:
 
     def show_new_level_screen(self):
         font = pygame.font.Font(None, 74)
-        text = font.render(f"Level {self.levels[self.current_level_index][0]}", True, WHITE)
+        text = font.render(f"Level {self.levels[self.current_level_index]['level']}", True, WHITE)
         countdown_font = pygame.font.Font(None, 50)
 
         for i in range(5, 0, -1):
@@ -211,13 +211,41 @@ class Game:
         self.running = True
         self.green_intensity = 255
         self.fade_speed = 1
-        self.levels = [[1, 5], [2, 6], [3, 8]]
         self.current_level_index = 0
+        self.current_level = None
         self.game_state = 'game'
+
+        # Уровни
+        self.levels = [
+            {"level": 1, "knife_enemies": 2, "gun_enemies": 1, "rifle_enemies": 0},
+            {"level": 2, "knife_enemies": 4, "gun_enemies": 2, "rifle_enemies": 0},
+            {"level": 3, "knife_enemies": 4, "gun_enemies": 4, "rifle_enemies": 0},
+            {"level": 4, "knife_enemies": 5, "gun_enemies": 5, "rifle_enemies": 0},
+            {"level": 5, "knife_enemies": 8, "gun_enemies": 6, "rifle_enemies": 0},
+        ]
+
         self.reset_game()
+
+    def get_valid_spawn_pos(self, min_distance_from_player):
+        """Генерирует корректные координаты спавна"""
+        while True:
+            x = random.randint(50, WIDTH - 50)
+            y = random.randint(50, HEIGHT - 50)
+
+            player_x, player_y = self.player.rect.center
+
+            if (x - player_x) ** 2 + (y - player_y) ** 2 >= min_distance_from_player ** 2:
+                return x, y
+
+    def spawn_enemy(self, enemy, group, min_distance_from_player):
+        x, y = self.get_valid_spawn_pos(min_distance_from_player)
+        enemy_to_spawn = enemy(x, y)
+        group.add(enemy_to_spawn)
 
     def reset_game(self):
         """Создаёт/пересоздаёт все игровые объекты с нуля."""
+        self.current_level = self.levels[self.current_level_index]  # Выбираем текущий уровень
+
         self.player = Player(WIDTH // 2, HEIGHT // 2, 40, 40)
         self.keys = {"up": False, "down": False, "left": False, "right": False}
 
@@ -225,22 +253,20 @@ class Game:
         self.player_group = pygame.sprite.GroupSingle(self.player)
         self.enemy_group = pygame.sprite.Group()
         self.gun_enemy_group = pygame.sprite.Group()
+        self.rifle_enemy_group = pygame.sprite.Group()
         self.player_bullets = pygame.sprite.Group()
         self.enemy_bullets = pygame.sprite.Group()
         self.dead_enemy_group = pygame.sprite.Group()
 
         # Создание врагов
-        for _ in range(self.levels[self.current_level_index][1]):
-            x = random.randint(0, WIDTH - 30)
-            y = random.randint(0, HEIGHT - 80)
-            enemy = Enemy(x, y)
-            self.enemy_group.add(enemy)
+        for _ in range(self.current_level["knife_enemies"]):
+            self.spawn_enemy(Enemy, self.enemy_group, 175)
 
-        for _ in range(self.levels[self.current_level_index][1] - 2):
-            x = random.randint(0, WIDTH - 30)
-            y = random.randint(0, HEIGHT - 80)
-            gun_enemy = GunEnemy(x, y)
-            self.gun_enemy_group.add(gun_enemy)
+        for _ in range(self.current_level["gun_enemies"]):
+            self.spawn_enemy(GunEnemy, self.gun_enemy_group,325)
+
+        for _ in range(self.current_level["rifle_enemies"]):
+            self.spawn_enemy(RifleEnemy, self.rifle_enemy_group, 275)
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -347,6 +373,7 @@ class Game:
             self.current_level_index += 1
             if self.current_level_index < len(self.levels):
                 Level.show_new_level_screen(self)
+                # self.reset_game()
             else:
                 self.game_state = 'win'
 
