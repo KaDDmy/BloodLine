@@ -22,6 +22,8 @@ RIFLE_SHOOT_INTERVAL = 2000  # Время между очередями в ми�
 RIFLE_BURST_INTERVAL = 100  # Время между выстрелами в миллисекундах в очереди для RifleEnemy()
 RIFLE_BULLET_COUNT = 8  # Количество пуль в 1 очереди у RifleEnemy()
 
+MULTIPLIER_RESET_TIME = 800
+
 # Цвета для теста(Потом будут спрайты)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -34,14 +36,16 @@ class Level:
     def __init__(self):
         super().__init__()
 
-    def show_new_level_screen(self):
+    def show_new_level_screen(self, level_score):
         font = pygame.font.Font(None, 74)
         text = font.render(f"Level {self.levels[self.current_level_index]['level']}", True, WHITE)
+        score_text = font.render(f"Level Score: {level_score}", True, WHITE)
         countdown_font = pygame.font.Font(None, 50)
 
         for i in range(5, 0, -1):
             self.screen.fill(BLACK)
             self.screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 3))
+            self.screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 50))
             countdown_text = countdown_font.render(f"Starting in {i}...", True, WHITE)
             self.screen.blit(countdown_text, (WIDTH // 2 - countdown_text.get_width() // 2, HEIGHT // 2))
             pygame.display.flip()
@@ -263,6 +267,12 @@ class Game:
         self.current_level = None
         self.game_state = 'game'
 
+        # Система очков
+        self.score = 0
+        self.total_score = 0
+        self.multiplier = 1.0
+        self.multiplier_reset_time = 0
+
         # Курсор в виде прицела
         pygame.mouse.set_visible(False)
         self.cursor_sprite = pygame.sprite.Sprite()
@@ -283,6 +293,16 @@ class Game:
         ]
 
         self.reset_game()
+
+    def add_score(self, base_score):
+        self.score += int(base_score * self.multiplier)
+        self.multiplier = min(self.multiplier + 0.1, 1.5)
+        self.multiplier_reset_time = pygame.time.get_ticks() + MULTIPLIER_RESET_TIME
+
+    def update_multiplier(self):
+        if pygame.time.get_ticks() > self.multiplier_reset_time:
+            self.multiplier = max(self.multiplier - 0.1, 1.0)
+            self.multiplier_reset_time = pygame.time.get_ticks() + MULTIPLIER_RESET_TIME
 
     def get_valid_spawn_pos(self, min_distance_from_player):
         """Генерирует корректные координаты спавна"""
@@ -382,6 +402,9 @@ class Game:
             # Движение игрока
             self.player.update(self.keys)
 
+            # Уменьшение множителя
+            self.update_multiplier()
+
             # Обновление врагов
             self.gun_enemy_group.update(self.player)
             self.enemy_group.update(self.player)
@@ -418,6 +441,8 @@ class Game:
             self.player, self.enemy_bullets, True, collided=pygame.sprite.collide_mask)
 
         if bullet_hits_player or player_hit_by_enemy or player_hit_by_gun_enemy:
+            self.score = 0
+            self.multiplier = 1.0
             self.game_over()
 
         bullets_hit_enemies = pygame.sprite.groupcollide(
@@ -427,6 +452,7 @@ class Game:
                 enemy.die()
                 self.enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
+                self.add_score(750)
 
         bullets_hit_gun_enemies = pygame.sprite.groupcollide(
             self.player_bullets, self.gun_enemy_group, True, False, collided=pygame.sprite.collide_mask)
@@ -435,6 +461,7 @@ class Game:
                 enemy.die()
                 self.gun_enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
+                self.add_score(1000)
 
         bullets_hit_rifle_enemies = pygame.sprite.groupcollide(
             self.player_bullets, self.rifle_enemy_group, True, False, collided=pygame.sprite.collide_mask)
@@ -443,12 +470,15 @@ class Game:
                 enemy.die()
                 self.rifle_enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
+                self.add_score(1250)
 
         if sum([len(self.enemy_group), len(self.gun_enemy_group), len(self.rifle_enemy_group)]) == 0:
+            self.total_score += self.score
             self.current_level_index += 1
             if self.current_level_index < len(self.levels):
-                Level.show_new_level_screen(self)
-                # self.reset_game()
+                Level.show_new_level_screen(self, self.score)
+                self.score = 0
+                self.multiplier = 1.0
             else:
                 self.game_state = 'win'
 
@@ -466,6 +496,13 @@ class Game:
             self.enemy_bullets.draw(self.screen)
 
             self.player_group.draw(self.screen)
+
+            # Отрисовка системы очков
+            font = pygame.font.SysFont(None, 40)
+            score_text = font.render(f"Score: {self.score}", True, WHITE)
+            multiplier_text = font.render(f"Multiplier: x{self.multiplier:.1f}", True, WHITE)
+            self.screen.blit(score_text, (10, 10))
+            self.screen.blit(multiplier_text, (10, 50))
 
             # Отрисовка курсора
             if pygame.mouse.get_focused():
@@ -494,8 +531,10 @@ class Game:
             # Отображение текста
             font = pygame.font.SysFont(None, 100)
             text = font.render("YOU WIN!", True, (204, 204, 51))
+            score_text = font.render(f"Total Score: {self.total_score}", True, (204, 204, 51))
             text_rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 50))
             self.screen.blit(text, text_rect)
+            self.screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 50))
 
             font_small = pygame.font.SysFont(None, 60)
             restart_text = font_small.render("Press 'Enter' to Play Again", True, (204, 204, 51))
