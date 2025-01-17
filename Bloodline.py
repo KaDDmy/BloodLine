@@ -53,6 +53,23 @@ class Level:
         Game.reset_game(self)
 
 
+class Particle(pygame.sprite.Sprite):
+    def __init__(self, pos, dx, dy):
+        super().__init__()
+        self.image = random.choice(game.particles_images)
+        self.rect = self.image.get_rect()
+
+        self.velocity = [dx, dy]
+        self.rect.center = pos
+
+    def update(self):
+        self.rect.x += self.velocity[0]
+        self.rect.y += self.velocity[1]
+        # Замедление частиц
+        self.velocity[0] *= 0.9
+        self.velocity[1] *= 0.9
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
@@ -142,6 +159,7 @@ class EnemyBase(pygame.sprite.Sprite):
     def die(self):
         """Убивает врага - меняет спрайт и удаляет маску"""
         self.is_dead = True
+        Game.create_particles(game, (self.rect.centerx, self.rect.centery))
         dead_image = Game.load_image(self.dead_image)
         self.image = pygame.transform.rotate(dead_image, self.current_angle)
         self.mask = None
@@ -280,6 +298,9 @@ class Game:
         self.cursor_sprite.rect = self.cursor_sprite.image.get_rect()
         self.cursor_group = pygame.sprite.GroupSingle(self.cursor_sprite)
 
+        # Прелоад партиклов
+        self.preload_particles()
+
         # Уровни
         self.levels = [
             {"level": 1, "knife_enemies": 2, "gun_enemies": 1, "rifle_enemies": 0},
@@ -320,6 +341,24 @@ class Game:
         enemy_to_spawn = enemy(x, y)
         group.add(enemy_to_spawn)
 
+    def preload_particles(self):
+        self.particles_images = [pygame.transform.scale(image, (random.randint(70, 100),
+                                                                random.randint(70, 100)))
+                                 for image in (
+                                     # Список партиклов
+                                     Game.load_image('blood-particle-type1.png'),
+                                     Game.load_image('blood-particle-type2.png'),
+                                     Game.load_image('blood-particle-type3.png'))
+                                 for _ in range(5)]
+
+    def create_particles(self, pos):
+        """Создание частиц при смерти врага"""
+        for _ in range(10):  # Количество частиц
+            dx = random.randint(-5, 5)
+            dy = random.randint(-5, 5)
+            particle = Particle(pos, dx, dy)
+            self.particles_group.add(particle)
+
     def reset_game(self):
         """Создаёт/пересоздаёт все игровые объекты с нуля."""
         self.current_level = self.levels[self.current_level_index]  # Выбираем текущий уровень
@@ -335,6 +374,7 @@ class Game:
         self.player_bullets = pygame.sprite.Group()
         self.enemy_bullets = pygame.sprite.Group()
         self.dead_enemy_group = pygame.sprite.Group()
+        self.particles_group = pygame.sprite.Group()
 
         # Создание врагов
         for _ in range(self.current_level["knife_enemies"]):
@@ -401,6 +441,9 @@ class Game:
         if self.game_state == 'game':
             # Движение игрока
             self.player.update(self.keys)
+
+            # Обновление частиц
+            self.particles_group.update()
 
             # Уменьшение множителя
             self.update_multiplier()
@@ -487,6 +530,7 @@ class Game:
             self.screen.fill(BLACK)
 
             # Отрисовка групп
+            self.particles_group.draw(self.screen)
             self.dead_enemy_group.draw(self.screen)
 
             self.enemy_group.draw(self.screen)
