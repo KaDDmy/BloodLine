@@ -22,7 +22,7 @@ RIFLE_SHOOT_INTERVAL = 2000  # Время между очередями в ми�
 RIFLE_BURST_INTERVAL = 100  # Время между выстрелами в миллисекундах в очереди для RifleEnemy()
 RIFLE_BULLET_COUNT = 8  # Количество пуль в 1 очереди у RifleEnemy()
 
-MULTIPLIER_RESET_TIME = 750
+MULTIPLIER_RESET_TIME = 650
 
 # Цвета для теста(Потом будут спрайты)
 WHITE = (255, 255, 255)
@@ -317,7 +317,7 @@ class Game:
 
     def add_score(self, base_score):
         self.score += int(base_score * self.multiplier)
-        self.multiplier = min(self.multiplier + 0.1, 1.5)
+        self.multiplier = min(self.multiplier + 0.1, 2.0)
         self.multiplier_reset_time = pygame.time.get_ticks() + MULTIPLIER_RESET_TIME
 
     def update_multiplier(self):
@@ -435,6 +435,8 @@ class Game:
                         # Перезапуск игры
                         self.green_intensity = 255
                         self.current_level_index = 0
+                        self.multiplier = 1.0
+                        self.total_score = 0
                         self.reset_game()
                         self.game_state = "game"
 
