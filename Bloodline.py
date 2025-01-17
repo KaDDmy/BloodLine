@@ -342,13 +342,14 @@ class Game:
         group.add(enemy_to_spawn)
 
     def preload_particles(self):
-        self.particles_images = [pygame.transform.scale(image, (random.randint(70, 100),
-                                                                random.randint(70, 100)))
+        self.particles_images = [pygame.transform.scale(image, (random.randint(75, 100),
+                                                                random.randint(75, 100)))
                                  for image in (
                                      # Список партиклов
                                      Game.load_image('blood-particle-type1.png'),
                                      Game.load_image('blood-particle-type2.png'),
-                                     Game.load_image('blood-particle-type3.png'))
+                                     Game.load_image('blood-particle-type3.png'),
+                                     Game.load_image('blood-particle-type4.png'))
                                  for _ in range(5)]
 
     def create_particles(self, pos):
