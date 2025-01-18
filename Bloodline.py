@@ -368,7 +368,6 @@ class Game:
     def music(self):
         if self.game_state == 'game':
             if self.current_track_index < len(self.background_tracks):
-                print(self.current_track_index)
                 pygame.mixer.music.load(f'data/sounds/{self.background_tracks[self.current_track_index]}')
                 pygame.mixer.music.play()
                 self.current_track_index += 1
