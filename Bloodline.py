@@ -283,7 +283,19 @@ class Game:
         self.fade_speed = 1
         self.current_level_index = 0
         self.current_level = None
-        self.game_state = 'game'
+        #self.enemy_rifle_sound.play() - звук выстрела противника с пулеметом
+        #self.enemy_shot_sound.play() - звук выстрела противника с пистолетом
+        self.enemy_rifle_sound = pygame.mixer.Sound("data/sounds/thompson.mp3")
+        self.enemy_rifle_sound.set_volume(0.3)
+        self.enemy_shot_sound = pygame.mixer.Sound("data/sounds/enemy_shot.mp3")
+        self.enemy_shot_sound.set_volume(0.3)
+        self.shot_sound = pygame.mixer.Sound("data/sounds/shot.mp3")
+        self.shot_sound.set_volume(0.3)
+        self.background_tracks = ["Sleepless-City.mp3", "Ghostrifter.mp3"]  # Список MP3-файлов
+        self.current_track_index = 0
+        pygame.mixer.music.set_volume(0.3)
+        self.menu_tracks = 'IntoTheWilds.mp3'
+        self.game_state = 'menu'
 
         # Система очков
         self.score = 0
@@ -312,8 +324,60 @@ class Game:
             {"level": 7, "knife_enemies": 5, "gun_enemies": 4, "rifle_enemies": 3},
             {"level": 8, "knife_enemies": 5, "gun_enemies": 5, "rifle_enemies": 4},
         ]
+        self.menu()
 
-        self.reset_game()
+    def menu(self):
+        image = pygame.image.load("data/images/menu.png")
+        image_rect = image.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        font = pygame.font.Font(None, 36)
+        text_color = (89, 0, 0)
+        blink_interval = 0.5  # Интервал мигания (в секундах)
+        last_blink_time = time.time()
+        show_text = True
+        run = True
+        while run:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    self.running = False
+                    pygame.mixer.music.stop()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                        self.reset_game()
+                        pygame.mixer.music.stop()
+                        self.game_state = 'game'
+                        run = False
+            self.screen.fill((0, 0, 0))
+            self.screen.blit(image, image_rect)
+            if not pygame.mixer.music.get_busy():  # Если музыка не играет
+                self.music()
+
+            # Управление миганием текста
+            current_time = time.time()
+            if current_time - last_blink_time > blink_interval:
+                show_text = not show_text
+                last_blink_time = current_time
+
+            # Отображение текста
+            if show_text:
+                text_surface = font.render("Нажмите ENTER, чтобы начать игру", True, text_color)
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+                self.screen.blit(text_surface, text_rect)
+            pygame.display.flip()
+
+    def music(self):
+        if self.game_state == 'game':
+            if self.current_track_index < len(self.background_tracks):
+                print(self.current_track_index)
+                pygame.mixer.music.load(f'data/sounds/{self.background_tracks[self.current_track_index]}')
+                pygame.mixer.music.play()
+                self.current_track_index += 1
+            else:
+                self.current_track_index = 0  # Зациклить список
+                self.music()
+        elif self.game_state == 'menu':
+            pygame.mixer.music.load(f'data/sounds/menu/{self.menu_tracks}')
+            pygame.mixer.music.play()
 
     def add_score(self, base_score):
         self.score += int(base_score * self.multiplier)
@@ -391,6 +455,7 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+                pygame.mixer.music.stop()
 
             if event.type == pygame.MOUSEMOTION:
                 self.cursor_sprite.rect.center = event.pos
@@ -421,6 +486,8 @@ class Game:
                         if self.player.can_shoot():
                             bullet = self.player.shoot(pygame.mouse.get_pos())
                             self.player_bullets.add(bullet)
+                            self.shot_sound.play()
+
 
             elif self.game_state == 'game_over':
                 if event.type == pygame.KEYDOWN:
@@ -470,6 +537,9 @@ class Game:
                 bullet = rifle_enemy.shoot(self.player.rect)
                 if bullet:
                     self.enemy_bullets.add(bullet)
+
+            if not pygame.mixer.music.get_busy():  # Если музыка не играет
+                self.music()
 
             # Обновление пуль
             self.player_bullets.update()
@@ -527,6 +597,7 @@ class Game:
                 self.multiplier = 1.0
             else:
                 self.game_state = 'win'
+                pygame.mixer.music.stop()
 
     def draw(self):
         if self.game_state == 'game':
