@@ -283,16 +283,16 @@ class Game:
         self.fade_speed = 1
         self.current_level_index = 0
         self.current_level = None
-        #self.enemy_rifle_sound.play() - звук выстрела противника с пулеметом
-        #self.enemy_shot_sound.play() - звук выстрела противника с пистолетом
+        # self.enemy_rifle_sound.play() - звук выстрела противника с пулеметом
+        # self.enemy_shot_sound.play() - звук выстрела противника с пистолетом
         self.enemy_rifle_sound = pygame.mixer.Sound("data/sounds/thompson.mp3")
         self.enemy_rifle_sound.set_volume(0.3)
         self.enemy_shot_sound = pygame.mixer.Sound("data/sounds/enemy_shot.mp3")
         self.enemy_shot_sound.set_volume(0.3)
         self.shot_sound = pygame.mixer.Sound("data/sounds/shot.mp3")
         self.shot_sound.set_volume(0.3)
-        self.background_tracks = ["Sleepless-City.mp3", "Ghostrifter.mp3"]  # Список MP3-файлов
-        self.current_track_index = 0
+        self.background_tracks = ["Sleepless-City.mp3", "Ghostrifter.mp3", "NeonDrive.mp3"]  # Список MP3-файлов
+        self.current_track_index = random.randint(0, len(self.background_tracks) - 1)  # Выбор случайного трека
         pygame.mixer.music.set_volume(0.3)
         self.menu_tracks = 'IntoTheWilds.mp3'
         self.game_state = 'menu'
@@ -329,8 +329,9 @@ class Game:
     def menu(self):
         image = pygame.image.load("data/images/menu.png")
         image_rect = image.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-        font = pygame.font.Font(None, 36)
+        font = pygame.font.Font(None, 40)
         text_color = (89, 0, 0)
+        shadow_color = (0, 0, 0)  # Темный цвет для тени
         blink_interval = 0.5  # Интервал мигания (в секундах)
         last_blink_time = time.time()
         show_text = True
@@ -361,7 +362,12 @@ class Game:
             # Отображение текста
             if show_text:
                 text_surface = font.render("Нажмите ENTER, чтобы начать игру", True, text_color)
+                shadow_surface = font.render("Нажмите ENTER, чтобы начать игру", True, shadow_color)
+                shadow_surface.set_alpha(176)
                 text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+                shadow_rect = text_rect.copy()
+                shadow_rect.x, shadow_rect.y = shadow_rect.x + 2, shadow_rect.y + 2
+                self.screen.blit(shadow_surface, shadow_rect)
                 self.screen.blit(text_surface, text_rect)
             pygame.display.flip()
 
@@ -503,6 +509,7 @@ class Game:
                         self.current_level_index = 0
                         self.multiplier = 1.0
                         self.total_score = 0
+                        self.score = 0
                         self.reset_game()
                         self.game_state = "game"
 
