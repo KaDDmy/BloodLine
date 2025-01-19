@@ -283,6 +283,8 @@ class Game:
         self.fade_speed = 1
         self.current_level_index = 0
         self.current_level = None
+        self.hit_sounds = ["hit_3.mp3", "hit_2.mp3", "hit_4.mp3", "hit_5.mp3", "hit_6.mp3"]
+        self.player_hit = pygame.mixer.Sound("data/sounds/player_death.mp3")
         # self.enemy_rifle_sound.play() - звук выстрела противника с пулеметом
         # self.enemy_shot_sound.play() - звук выстрела противника с пистолетом
         self.enemy_rifle_sound = pygame.mixer.Sound("data/sounds/thompson.mp3")
@@ -383,6 +385,13 @@ class Game:
         elif self.game_state == 'menu':
             pygame.mixer.music.load(f'data/sounds/menu/{self.menu_tracks}')
             pygame.mixer.music.play()
+
+    def hit(self):
+        self.random_sound = random.choice(self.hit_sounds)
+        self.hit_sound = pygame.mixer.Sound(f'data/sounds/{self.random_sound}')
+        self.hit_sound.set_volume(0.2)
+        self.hit_sound.play()
+
 
     def add_score(self, base_score):
         self.score += int(base_score * self.multiplier)
@@ -565,6 +574,7 @@ class Game:
         if bullet_hits_player or player_hit_by_enemy or player_hit_by_gun_enemy:
             self.score = 0
             self.multiplier = 1.0
+            self.player_hit.play()
             self.game_over()
 
         bullets_hit_enemies = pygame.sprite.groupcollide(
@@ -572,6 +582,7 @@ class Game:
         for bullet, enemies in bullets_hit_enemies.items():
             for enemy in enemies:
                 enemy.die()
+                self.hit()
                 self.enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
                 self.add_score(750)
@@ -581,6 +592,7 @@ class Game:
         for bullet, enemies in bullets_hit_gun_enemies.items():
             for enemy in enemies:
                 enemy.die()
+                self.hit()
                 self.gun_enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
                 self.add_score(1000)
@@ -590,6 +602,7 @@ class Game:
         for bullet, enemies in bullets_hit_rifle_enemies.items():
             for enemy in enemies:
                 enemy.die()
+                self.hit()
                 self.rifle_enemy_group.remove(enemy)
                 self.dead_enemy_group.add(enemy)
                 self.add_score(1250)
