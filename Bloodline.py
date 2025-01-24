@@ -42,25 +42,40 @@ class Level:
         score_text = font.render(f"Level Score: {level_score}", True, WHITE)
         countdown_font = pygame.font.Font(None, 50)
 
-        for i in range(5, 0, -1):
+        self.start_time = pygame.time.get_ticks()
+        duration = 5000
+
+        while True:
+            elapsed_time = pygame.time.get_ticks() - self.start_time
             self.screen.fill(BLACK)
             self.screen.blit(text, (WIDTH // 2 - text.get_width() // 2, HEIGHT // 3))
             self.screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 50))
-            countdown_text = countdown_font.render(f"Starting in {i}...", True, WHITE)
+            countdown_text = countdown_font.render(f"Starting in {5 - elapsed_time // 1000}...", True, WHITE)
             self.screen.blit(countdown_text, (WIDTH // 2 - countdown_text.get_width() // 2, HEIGHT // 2))
             pygame.display.flip()
-            time.sleep(1)
+
+            if elapsed_time >= duration:
+                break
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
         Game.reset_game(self)
 
 
 class Particle(pygame.sprite.Sprite):
     def __init__(self, pos, dx, dy):
         super().__init__()
-        self.image = random.choice(game.particles_images)
+        original_image = random.choice(game.particles_images)
+        self.image = original_image.copy()
         self.rect = self.image.get_rect()
 
         self.velocity = [dx, dy]
         self.rect.center = pos
+
+        self.alpha = 255
 
     def update(self):
         self.rect.x += self.velocity[0]
@@ -68,6 +83,12 @@ class Particle(pygame.sprite.Sprite):
         # Замедление частиц
         self.velocity[0] *= 0.9
         self.velocity[1] *= 0.9
+
+        self.alpha -= 2
+        if self.alpha <= 0:
+            self.kill()
+        else:
+            self.image.set_alpha(self.alpha)  # Изменение прозрачности
 
 
 class Player(pygame.sprite.Sprite):
@@ -283,8 +304,10 @@ class Game:
         self.fade_speed = 1
         self.current_level_index = 0
         self.current_level = None
+        self.background_image = Game.load_image('background.png').convert()
         self.hit_sounds = ["hit_3.mp3", "hit_2.mp3", "hit_4.mp3", "hit_5.mp3", "hit_6.mp3"]
         self.player_hit = pygame.mixer.Sound("data/sounds/player_death.mp3")
+        self.player_hit.set_volume(0.65)
         # self.enemy_rifle_sound.play() - звук выстрела противника с пулеметом
         # self.enemy_shot_sound.play() - звук выстрела противника с пистолетом
         self.enemy_rifle_sound = pygame.mixer.Sound("data/sounds/thompson.mp3")
@@ -392,7 +415,6 @@ class Game:
         self.hit_sound.set_volume(0.2)
         self.hit_sound.play()
 
-
     def add_score(self, base_score):
         self.score += int(base_score * self.multiplier)
         self.multiplier = min(self.multiplier + 0.1, 2.0)
@@ -432,6 +454,7 @@ class Game:
 
     def create_particles(self, pos):
         """Создание частиц при смерти врага"""
+
         for _ in range(10):  # Количество частиц
             dx = random.randint(-5, 5)
             dy = random.randint(-5, 5)
@@ -500,7 +523,7 @@ class Game:
                         if self.player.can_shoot():
                             bullet = self.player.shoot(pygame.mouse.get_pos())
                             self.player_bullets.add(bullet)
-                            self.shot_sound.play()
+                            self.shot_sound.play(maxtime=1000)
 
 
             elif self.game_state == 'game_over':
@@ -620,7 +643,7 @@ class Game:
 
     def draw(self):
         if self.game_state == 'game':
-            self.screen.fill(BLACK)
+            self.screen.blit(self.background_image, (0, 0))
 
             # Отрисовка групп
             self.particles_group.draw(self.screen)
