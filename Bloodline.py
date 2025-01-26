@@ -111,8 +111,8 @@ class Player(pygame.sprite.Sprite):
             self.rect.x += PLAYER_SPEED
 
         # Ограничение игрока внутри экрана
-        self.rect.x = max(0, min(WIDTH - self.rect.width, self.rect.x))
-        self.rect.y = max(0, min(HEIGHT - self.rect.height, self.rect.y))
+        self.rect.x = max(40, min(WIDTH - self.rect.width - 40, self.rect.x))
+        self.rect.y = max(40, min(HEIGHT - self.rect.height - 40, self.rect.y))
 
     def look_at_cursor(self):
         """Поворачивает игрока в сторону курсора"""
@@ -290,7 +290,7 @@ class Bullet(pygame.sprite.Sprite):
         self.rect.center = (int(self.x), int(self.y))
 
         # Удаление пули, если она за экраном
-        if self.rect.y < 0 or self.rect.y > HEIGHT or self.rect.x < 0 or self.rect.x > WIDTH:
+        if self.rect.y < 42 or self.rect.y > HEIGHT - 42 or self.rect.x < 42 or self.rect.x > WIDTH - 42:
             self.kill()
 
 
@@ -304,6 +304,27 @@ class Game:
         self.fade_speed = 1
         self.current_level_index = 0
         self.current_level = None
+        self.text = [
+    ">Mission - BLOODLINE",
+    ">",
+    ">Objective - defeat an underground cartel, involved in the",
+    ">creation and distribution of a deadly drug called \"Bloodline\"",
+    ">",
+    ">Location - USA, Albuquerque, abandoned warehouse",
+    ">",
+    ">Time - 11:00 p.m."
+]
+        self.line_spacing = 40
+        self.delay_per_char = 60  # Задержка между символами в миллисекундах
+        self.start_x, self.start_y = 20, 20
+
+        # Переменные для отслеживания состояния
+        self.current_line = 0
+        self.current_char = 0
+        self.last_update_time = pygame.time.get_ticks()  # Время последнего обновления
+        self.rendered_lines = []
+        self.font = pygame.font.Font(None, 36)
+
         self.background_image = Game.load_image('background.png').convert()
         self.hit_sounds = ["hit_3.mp3", "hit_2.mp3", "hit_4.mp3", "hit_5.mp3", "hit_6.mp3"]
         self.player_hit = pygame.mixer.Sound("data/sounds/player_death.mp3")
@@ -369,9 +390,10 @@ class Game:
                     pygame.mixer.music.stop()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
-                        self.reset_game()
-                        pygame.mixer.music.stop()
-                        self.game_state = 'game'
+                        self.draw_text_with_effect(self.screen)
+                        #self.reset_game()
+                        #pygame.mixer.music.stop()
+                        #self.game_state = 'game'
                         run = False
             self.screen.fill((0, 0, 0))
             self.screen.blit(image, image_rect)
@@ -394,6 +416,79 @@ class Game:
                 shadow_rect.x, shadow_rect.y = shadow_rect.x + 2, shadow_rect.y + 2
                 self.screen.blit(shadow_surface, shadow_rect)
                 self.screen.blit(text_surface, text_rect)
+            pygame.display.flip()
+
+    def draw_text_with_effect(self, screen):
+        running = True
+        font = pygame.font.Font(None, 36)
+        text_color = (0, 200, 0)
+        shadow_color = (0, 0, 0)  # Темный цвет для тени
+        blink_interval = 0.5  # Интервал мигания (в секундах)
+        last_blink_time = time.time()
+        show_text = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    self.running = False
+                    pygame.mixer.music.stop()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                        self.reset_game()
+                        pygame.mixer.music.stop()
+                        self.game_state = 'game'
+                        running = False
+            screen.fill((0, 0, 0))  # Очистить экран
+
+            # Получение текущего времени
+            now = pygame.time.get_ticks()
+
+            # Логика печати текста
+            if self.current_line < len(self.text):
+                if now - self.last_update_time > self.delay_per_char:
+                    self.last_update_time = now  # Обновить время последнего изменения
+
+                    # Добавить следующий символ к текущей строке
+                    if self.current_char < len(self.text[self.current_line]):
+                        self.current_char += 1
+                    else:
+                        # Переход к следующей строке
+                        self.rendered_lines.append(self.text[self.current_line])
+                        self.current_line += 1
+                        self.current_char = 0
+            else:
+                self.reset_game()
+                pygame.mixer.music.stop()
+                self.game_state = 'game'
+                running = False
+
+            # Отрисовка текста
+            for i, line in enumerate(self.rendered_lines):
+                text_surface = self.font.render(line, True, (0, 255, 0))
+                screen.blit(text_surface, (self.start_x, self.start_y + i * self.line_spacing))
+
+            # Отрисовка текущей печатающейся строки
+            if self.current_line < len(self.text):
+                current_text = self.text[self.current_line][:self.current_char]
+                text_surface = self.font.render(current_text, True, GREEN)
+                screen.blit(text_surface, (self.start_x, self.start_y + self.current_line * self.line_spacing))
+
+            current_time = time.time()
+            if current_time - last_blink_time > blink_interval:
+                show_text = not show_text
+                last_blink_time = current_time
+
+            # Отображение текста
+            if show_text:
+                text_surface = font.render("Нажмите ENTER, чтобы пропустить", True, text_color)
+                shadow_surface = font.render("Нажмите ENTER, чтобы пропустить", True, shadow_color)
+                shadow_surface.set_alpha(176)
+                text_rect = text_surface.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+                shadow_rect = text_rect.copy()
+                shadow_rect.x, shadow_rect.y = shadow_rect.x + 2, shadow_rect.y + 2
+                self.screen.blit(shadow_surface, shadow_rect)
+                self.screen.blit(text_surface, text_rect)
+
             pygame.display.flip()
 
     def music(self):
@@ -507,6 +602,12 @@ class Game:
                         self.keys["left"] = True
                     if event.key == pygame.K_d:
                         self.keys["right"] = True
+                    if event.key == pygame.K_t:
+                        if self.current_track_index < len(self.background_tracks):
+                            self.music()
+                        else:
+                            self.current_track_index = 0  # Зациклить список
+                            self.music()
 
                 if event.type == pygame.KEYUP:
                     if event.key == pygame.K_w:
