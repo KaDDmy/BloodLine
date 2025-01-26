@@ -305,15 +305,15 @@ class Game:
         self.current_level_index = 0
         self.current_level = None
         self.text = [
-    ">Mission - BLOODLINE",
-    ">",
-    ">Objective - defeat an underground cartel, involved in the",
-    ">creation and distribution of a deadly drug called \"Bloodline\"",
-    ">",
-    ">Location - USA, Albuquerque, abandoned warehouse",
-    ">",
-    ">Time - 11:00 p.m."
-]
+            "> Mission - BLOODLINE",
+            ">",
+            "> Objective - defeat an underground cartel, involved in the",
+            "> creation and distribution of a deadly drug called \"Bloodline\"",
+            ">",
+            "> Location - USA, Albuquerque, abandoned warehouse",
+            ">",
+            "> Time - 11:00 p.m."
+        ]
         self.line_spacing = 40
         self.delay_per_char = 60  # Задержка между символами в миллисекундах
         self.start_x, self.start_y = 20, 20
@@ -391,9 +391,9 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
                         self.draw_text_with_effect(self.screen)
-                        #self.reset_game()
-                        #pygame.mixer.music.stop()
-                        #self.game_state = 'game'
+                        # self.reset_game()
+                        # pygame.mixer.music.stop()
+                        # self.game_state = 'game'
                         run = False
             self.screen.fill((0, 0, 0))
             self.screen.blit(image, image_rect)
@@ -760,6 +760,14 @@ class Game:
 
             # Отрисовка системы очков
             font = pygame.font.SysFont(None, 40)
+            # Тень
+            score_text_shadow = font.render(f"Score: {self.score}", True, BLACK)
+            multiplier_text_shadow = font.render(f"Multiplier: x{self.multiplier:.1f}", True, BLACK)
+            score_text_shadow.set_alpha(176)
+            multiplier_text_shadow.set_alpha(176)
+            self.screen.blit(score_text_shadow, (12, 12))
+            self.screen.blit(multiplier_text_shadow, (12, 52))
+            # Текст
             score_text = font.render(f"Score: {self.score}", True, WHITE)
             multiplier_text = font.render(f"Multiplier: x{self.multiplier:.1f}", True, WHITE)
             self.screen.blit(score_text, (10, 10))
