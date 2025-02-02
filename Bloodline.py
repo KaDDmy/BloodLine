@@ -298,6 +298,8 @@ class Game:
     def __init__(self):
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("BloodLine")
+        self.bloodline_icon = Game.load_image('BloodLineLogoNoBG.png')
+        pygame.display.set_icon(self.bloodline_icon)
         self.clock = pygame.time.Clock()
         self.running = True
         self.green_intensity = 255
