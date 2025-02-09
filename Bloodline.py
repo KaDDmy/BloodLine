@@ -719,11 +719,13 @@ class Game:
                                                           collided=pygame.sprite.collide_mask)
         player_hit_by_gun_enemy = pygame.sprite.spritecollide(self.player, self.gun_enemy_group, False,
                                                               collided=pygame.sprite.collide_mask)
+        player_hit_by_rifle_enemy = pygame.sprite.spritecollide(self.player, self.rifle_enemy_group, False,
+                                                                collided=pygame.sprite.collide_mask)
 
         bullet_hits_player = pygame.sprite.spritecollide(
             self.player, self.enemy_bullets, True, collided=pygame.sprite.collide_mask)
 
-        if bullet_hits_player or player_hit_by_enemy or player_hit_by_gun_enemy:
+        if bullet_hits_player or player_hit_by_enemy or player_hit_by_gun_enemy or player_hit_by_rifle_enemy:
             self.score = 0
             self.multiplier = 1.0
             self.player_hit.play()
