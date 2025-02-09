@@ -363,6 +363,7 @@ class Game:
 
         # Уровни
         self.levels = [
+            {"level": 0, "knife_enemies": 2, "gun_enemies": 0, "rifle_enemies": 0},
             {"level": 1, "knife_enemies": 2, "gun_enemies": 1, "rifle_enemies": 0},
             {"level": 2, "knife_enemies": 1, "gun_enemies": 1, "rifle_enemies": 1},
             {"level": 3, "knife_enemies": 3, "gun_enemies": 2, "rifle_enemies": 1},
@@ -375,6 +376,17 @@ class Game:
         self.menu()
 
     def menu(self):
+        self.current_level_index = 0
+        self.current_level = None
+        self.score = 0
+        self.total_score = 0
+        self.multiplier = 1.0
+        self.multiplier_reset_time = 0
+        self.current_line = 0
+        self.current_char = 0
+        self.last_update_time = pygame.time.get_ticks()  # Время последнего обновления
+        self.rendered_lines = []
+        self.font = pygame.font.Font(None, 36)
         image = pygame.image.load("data/images/menu.png")
         image_rect = image.get_rect(center=(WIDTH // 2, HEIGHT // 2))
         font = pygame.font.Font(None, 40)
@@ -610,6 +622,10 @@ class Game:
                         else:
                             self.current_track_index = 0  # Зациклить список
                             self.music()
+                    if event.key == pygame.K_ESCAPE:
+                        self.game_state = 'menu'
+                        self.music()
+                        self.menu()
 
                 if event.type == pygame.KEYUP:
                     if event.key == pygame.K_w:
@@ -636,6 +652,11 @@ class Game:
                         self.reset_game()
                         self.game_state = "game"
 
+                    if event.key == pygame.K_ESCAPE:
+                        self.game_state = 'menu'
+                        self.music()
+                        self.menu()
+
             elif self.game_state == 'win':
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
@@ -647,6 +668,11 @@ class Game:
                         self.score = 0
                         self.reset_game()
                         self.game_state = "game"
+
+                    if event.key == pygame.K_ESCAPE:
+                        self.game_state = 'menu'
+                        self.music()
+                        self.menu()
 
     def update(self):
         if self.game_state == 'game':
@@ -779,6 +805,19 @@ class Game:
             if pygame.mouse.get_focused():
                 self.cursor_group.draw(self.screen)
 
+            if self.current_level_index == 0:
+                font_small1 = pygame.font.SysFont(None, 30)
+                instruction_text = font_small1.render("[Controls: Moving - WASD, Shooting - LMB]", True, WHITE)
+                instruction_rect = instruction_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+                instruction_text.set_alpha(150)
+                self.screen.blit(instruction_text, instruction_rect)
+            if self.current_level_index == 1:
+                font_small2 = pygame.font.SysFont(None, 30)
+                instruction2_text = font_small2.render("[Controls: Change music - T]", True, WHITE)
+                instruction2_rect = instruction2_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+                instruction2_text.set_alpha(150)
+                self.screen.blit(instruction2_text, instruction2_rect)
+
         elif self.game_state == 'game_over':
             # Рисуем экран Game Over
             self.screen.fill((30, 0, 0))  # Тёмно-красный фон
@@ -791,6 +830,12 @@ class Game:
             restart_text = font_small.render("Press R to Restart", True, WHITE)
             restart_rect = restart_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 50))
             self.screen.blit(restart_text, restart_rect)
+
+            font_instr3 = pygame.font.SysFont(None, 30)
+            instruction3_text = font_instr3.render("[Controls: Back to menu - Esc]", True, WHITE)
+            instruction3_rect = instruction3_text.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+            instruction3_text.set_alpha(150)
+            self.screen.blit(instruction3_text, instruction3_rect)
 
         elif self.game_state == 'win':
             if self.green_intensity > 0:
